@@ -9,7 +9,6 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: "Drawing App",
       home: DrawingBoard(),
     );
   }
@@ -21,174 +20,149 @@ class DrawingBoard extends StatefulWidget {
 }
 
 class _DrawingBoardState extends State<DrawingBoard> {
-  var _points = <DrawingPoints>[];
+  Color selectedColor = Colors.black;
+  double strokeWidth = 5;
+  List<DrawingPoint> drawingPoints = [];
   List<Color> colors = [
-    Colors.red,
-    Colors.blue,
     Colors.pink,
-    Colors.green,
+    Colors.red,
+    Colors.black,
+    Colors.yellow,
+    Colors.amberAccent,
     Colors.purple,
-    Colors.amberAccent
+    Colors.green,
   ];
-
-  Color selectedColor = Colors.red;
-  double strokeWidth = 3;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: Container(
-          width: double.infinity,
-          child: GestureDetector(
+      body: Stack(
+        children: [
+          GestureDetector(
             onPanStart: (details) {
               setState(() {
-                _points.add(
-                  DrawingPoints(
-                    points: details.localPosition,
-                    paint: Paint()
-                      ..isAntiAlias = true
+                drawingPoints.add(
+                  DrawingPoint(
+                    details.localPosition,
+                    Paint()
                       ..color = selectedColor
-                      ..strokeWidth = strokeWidth,
+                      ..isAntiAlias = true
+                      ..strokeWidth = strokeWidth
+                      ..strokeCap = StrokeCap.round,
                   ),
                 );
               });
             },
             onPanUpdate: (details) {
               setState(() {
-                _points.add(
-                  DrawingPoints(
-                    points: details.localPosition,
-                    paint: Paint()
-                      ..isAntiAlias = true
+                drawingPoints.add(
+                  DrawingPoint(
+                    details.localPosition,
+                    Paint()
                       ..color = selectedColor
-                      ..strokeWidth = strokeWidth,
+                      ..isAntiAlias = true
+                      ..strokeWidth = strokeWidth
+                      ..strokeCap = StrokeCap.round,
                   ),
                 );
               });
             },
             onPanEnd: (details) {
               setState(() {
-                _points.add(null);
+                drawingPoints.add(null);
               });
             },
-            child: Stack(
+            child: CustomPaint(
+              painter: _DrawingPainter(drawingPoints),
+              child: Container(
+                height: MediaQuery.of(context).size.height,
+                width: MediaQuery.of(context).size.width,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 40,
+            right: 30,
+            child: Row(
               children: [
-                CustomPaint(
-                  painter: DrawingPainter(_points, selectedColor),
-                  child: Container(
-                    height: MediaQuery.of(context).size.height,
-                    width: MediaQuery.of(context).size.width,
-                  ),
+                Slider(
+                  min: 0,
+                  max: 40,
+                  value: strokeWidth,
+                  onChanged: (val) => setState(() => strokeWidth = val),
                 ),
-                Positioned(
-                  top: 30,
-                  right: 50,
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 200,
-                        child: Slider(
-                          min: 0,
-                          max: 10,
-                          value: strokeWidth,
-                          onChanged: (val) {
-                            setState(() {
-                              strokeWidth = val;
-                            });
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        height: 45,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _points = [];
-                            });
-                          },
-                          icon: Icon(Icons.clear),
-                          label: Text('Clear Board'),
-                        ),
-                      ),
-                    ],
-                  ),
+                ElevatedButton.icon(
+                  onPressed: () => setState(() => drawingPoints = []),
+                  icon: Icon(Icons.clear),
+                  label: Text("Clear Board"),
                 )
               ],
             ),
           ),
-        ),
-        bottomNavigationBar: BottomAppBar(
-          child: Container(
-            padding: EdgeInsets.all(16),
-            color: Colors.grey[200],
-            width: double.infinity,
-            child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(
-                    colors.length, (index) => _buildColorChose(colors[index]))),
+        ],
+      ),
+      bottomNavigationBar: BottomAppBar(
+        child: Container(
+          color: Colors.grey[200],
+          padding: EdgeInsets.all(10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(
+              colors.length,
+              (index) => _buildColorChose(colors[index]),
+            ),
           ),
-        ));
+        ),
+      ),
+    );
   }
 
-  _buildColorChose(Color color) {
+  Widget _buildColorChose(Color color) {
     bool isSelected = selectedColor == color;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedColor = color;
-        });
-      },
-      child: AnimatedContainer(
-        duration: Duration(microseconds: 200),
-        height: isSelected ? 55 : 44,
-        width: isSelected ? 55 : 44,
+      onTap: () => setState(() => selectedColor = color),
+      child: Container(
+        height: isSelected ? 47 : 40,
+        width: isSelected ? 47 : 40,
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
-          border: isSelected ? Border.all(color: Colors.white, width: 5) : null,
+          border: isSelected ? Border.all(color: Colors.white, width: 3) : null,
         ),
       ),
     );
   }
 }
 
-class DrawingPainter extends CustomPainter {
-  List<DrawingPoints> points;
-  Color color;
+class _DrawingPainter extends CustomPainter {
+  final List<DrawingPoint> drawingPoints;
 
-  DrawingPainter(this.points, this.color);
+  _DrawingPainter(this.drawingPoints);
+
+  List<Offset> offsetsList = [];
 
   @override
   void paint(Canvas canvas, Size size) {
-    // print(points[0].points);
-    List<Offset> offsetPoints = [];
-    for (int i = 0; i < points.length; i++) {
-      if (points[i] != null && points[i + 1] != null) {
-        canvas.drawLine(
-            points[i].points, points[i + 1].points, points[i].paint);
-      } else if (points[i] != null && points[i + 1] == null) {
-        offsetPoints.clear();
-        offsetPoints.add(points[i].points);
-        offsetPoints
-            .add(Offset(points[i].points.dx + 0.1, points[i].points.dy + 0.1));
-        canvas.drawPoints(PointMode.points, offsetPoints, points[i].paint);
+    for (int i = 0; i < drawingPoints.length; i++) {
+      if (drawingPoints[i] != null && drawingPoints[i + 1] != null) {
+        canvas.drawLine(drawingPoints[i].offset, drawingPoints[i + 1].offset,
+            drawingPoints[i].paint);
+      } else if (drawingPoints[i] != null && drawingPoints[i + 1] == null) {
+        offsetsList.clear();
+        offsetsList.add(drawingPoints[i].offset);
+
+        canvas.drawPoints(
+            PointMode.points, offsetsList, drawingPoints[i].paint);
       }
     }
-
-    // for (int i = 0; i < offsets.length; i++) {
-    //   if (offsets[i] != null && offsets[i + 1] != null) {
-    //     canvas.drawLine(offsets[i], offsets[i + 1], paint);
-    //   } else if (offsets[i] != null && offsets[i + 1] == null) {
-    //     canvas.drawPoints(PointMode.points, [offsets[i]], paint);
-    //   }
-    // }
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-class DrawingPoints {
+class DrawingPoint {
+  Offset offset;
   Paint paint;
-  Offset points;
-  DrawingPoints({this.points, this.paint});
+
+  DrawingPoint(this.offset, this.paint);
 }
